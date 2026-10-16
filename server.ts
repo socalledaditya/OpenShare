@@ -1125,10 +1125,33 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(process.cwd(), 'dist')));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
-    });
+    const distPath = path.join(process.cwd(), 'dist');
+    const indexPath = path.join(distPath, 'index.html');
+
+    if (fs.existsSync(indexPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(indexPath);
+      });
+    } else {
+      app.get('/', (req, res) => {
+        res.json({
+          status: 'ok',
+          service: 'openShare API & WebSocket Server',
+          timestamp: Date.now(),
+        });
+      });
+      app.get('*', (req, res) => {
+        if (req.path.startsWith('/api') || req.path === '/ws') {
+          return res.status(404).json({ error: 'Endpoint not found' });
+        }
+        res.json({
+          status: 'ok',
+          service: 'openShare API & WebSocket Server',
+          message: 'API server is running. Connect via your Vercel frontend URL.',
+        });
+      });
+    }
   }
 
   server.listen(PORT, '0.0.0.0', () => {
