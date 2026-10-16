@@ -3,53 +3,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Header } from "./components/Header";
-import { LobbyView } from "./components/LobbyView";
-import { RoomView } from "./components/RoomView";
-import { DeleteModal } from "./components/DeleteModal";
-import { QRModal } from "./components/QRModal";
-import { WipedNotice } from "./components/WipedNotice";
-import { AuthModal } from "./components/AuthModal";
-import { DashboardModal } from "./components/DashboardModal";
-import { ClientRoomState, UserProfile, UserCreatedRoom } from "./types";
-import {
-  formatBytes,
-  sanitizeRoomCode,
-  generateRoomCode,
-} from "./utils/fileHelpers";
-import { getOrCreateDeviceId } from "./utils/device";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Header } from './components/Header';
+import { LobbyView } from './components/LobbyView';
+import { RoomView } from './components/RoomView';
+import { DeleteModal } from './components/DeleteModal';
+import { QRModal } from './components/QRModal';
+import { WipedNotice } from './components/WipedNotice';
+import { AuthModal } from './components/AuthModal';
+import { DashboardModal } from './components/DashboardModal';
+import { ClientRoomState, UserProfile, UserCreatedRoom } from './types';
+import { formatBytes, sanitizeRoomCode, generateRoomCode } from './utils/fileHelpers';
+import { getOrCreateDeviceId } from './utils/device';
+import { API_BASE_URL, getWsUrl } from './utils/config';
 
 export default function App() {
   const [currentRoom, setCurrentRoom] = useState<ClientRoomState | null>(null);
-  const [peerId] = useState<string>(
-    () => "peer_" + Math.random().toString(36).slice(2, 9),
-  );
-  const [peerName, setPeerName] = useState<string>("Guest");
+  const [peerId] = useState<string>(() => 'peer_' + Math.random().toString(36).slice(2, 9));
+  const [peerName, setPeerName] = useState<string>('Guest');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [activeGuestRoom, setActiveGuestRoom] =
-    useState<UserCreatedRoom | null>(null);
+  const [activeGuestRoom, setActiveGuestRoom] = useState<UserCreatedRoom | null>(null);
   const deviceId = useRef<string>(getOrCreateDeviceId());
 
   // Dark mode state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved =
-      localStorage.getItem("openshare_theme") ||
-      localStorage.getItem("beamdrop_theme");
-    if (saved) return saved === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const saved = localStorage.getItem('openshare_theme') || localStorage.getItem('beamdrop_theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
     if (darkMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("openshare_theme", "dark");
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('openshare_theme', 'dark');
     } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("openshare_theme", "light");
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('openshare_theme', 'light');
     }
   }, [darkMode]);
 
@@ -58,11 +50,7 @@ export default function App() {
   };
 
   // User Auth State
-  const [token, setToken] = useState<string | null>(
-    () =>
-      localStorage.getItem("openshare_token") ||
-      localStorage.getItem("beamdrop_token"),
-  );
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('openshare_token') || localStorage.getItem('beamdrop_token'));
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
@@ -80,10 +68,7 @@ export default function App() {
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
 
   // Wiped notice state
-  const [wipedInfo, setWipedInfo] = useState<{
-    roomCode: string;
-    reason: string;
-  } | null>(null);
+  const [wipedInfo, setWipedInfo] = useState<{ roomCode: string; reason: string } | null>(null);
 
   // WebSocket reference
   const wsRef = useRef<WebSocket | null>(null);
@@ -95,11 +80,11 @@ export default function App() {
       return;
     }
 
-    fetch("/api/auth/me", {
+    fetch(`${API_BASE_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Session expired");
+        if (!res.ok) throw new Error('Session expired');
         return res.json();
       })
       .then((data) => {
@@ -107,8 +92,8 @@ export default function App() {
         setPeerName(data.user.username);
       })
       .catch(() => {
-        localStorage.removeItem("openshare_token");
-        localStorage.removeItem("beamdrop_token");
+        localStorage.removeItem('openshare_token');
+        localStorage.removeItem('beamdrop_token');
         setToken(null);
         setUser(null);
       });
@@ -121,7 +106,7 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch("/api/user/rooms", {
+      const res = await fetch(`${API_BASE_URL}/api/user/rooms`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -129,7 +114,7 @@ export default function App() {
         setUserRooms(data.rooms || []);
       }
     } catch (e) {
-      console.error("Failed to fetch user rooms", e);
+      console.error('Failed to fetch user rooms', e);
     }
   }, [token]);
 
@@ -148,8 +133,8 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch("/api/device/rooms", {
-        headers: { "x-device-id": deviceId.current },
+      const res = await fetch(`${API_BASE_URL}/api/device/rooms`, {
+        headers: { 'x-device-id': deviceId.current },
       });
       if (res.ok) {
         const data = await res.json();
@@ -160,7 +145,7 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.error("Failed to load guest rooms", e);
+      console.error('Failed to load guest rooms', e);
     }
   }, [user]);
 
@@ -176,8 +161,7 @@ export default function App() {
         wsRef.current = null;
       }
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = getWsUrl();
 
       try {
         const socket = new WebSocket(wsUrl);
@@ -186,17 +170,17 @@ export default function App() {
         socket.onopen = () => {
           socket.send(
             JSON.stringify({
-              type: "join",
+              type: 'join',
               roomId,
               peerId,
               peerName: name,
               userId: user?.id,
               deviceId: deviceId.current,
-            }),
+            })
           );
 
           if (token) {
-            socket.send(JSON.stringify({ type: "auth", token }));
+            socket.send(JSON.stringify({ type: 'auth', token }));
           }
         };
 
@@ -204,15 +188,13 @@ export default function App() {
           try {
             const data = JSON.parse(event.data);
 
-            if (data.type === "room:init") {
+            if (data.type === 'room:init') {
               setCurrentRoom(data.room);
               setErrorMessage(null);
               setWipedInfo(null);
-            } else if (data.type === "peer:update") {
-              setCurrentRoom((prev) =>
-                prev ? { ...prev, activePeers: data.activePeers } : null,
-              );
-            } else if (data.type === "files:updated") {
+            } else if (data.type === 'peer:update') {
+              setCurrentRoom((prev) => (prev ? { ...prev, activePeers: data.activePeers } : null));
+            } else if (data.type === 'files:updated') {
               setCurrentRoom((prev) =>
                 prev
                   ? {
@@ -220,9 +202,9 @@ export default function App() {
                       files: data.files,
                       totalBytes: data.totalBytes,
                     }
-                  : null,
+                  : null
               );
-            } else if (data.type === "room:log") {
+            } else if (data.type === 'room:log') {
               setCurrentRoom((prev) => {
                 if (!prev) return null;
                 const exists = prev.logs.some((l) => l.id === data.log.id);
@@ -231,18 +213,18 @@ export default function App() {
                 if (updatedLogs.length > 50) updatedLogs.shift();
                 return { ...prev, logs: updatedLogs };
               });
-            } else if (data.type === "room:deleted") {
+            } else if (data.type === 'room:deleted') {
               setWipedInfo({
                 roomCode: data.roomId || roomId,
-                reason: data.reason || "Room closed and files deleted.",
+                reason: data.reason || 'Room closed and files deleted.',
               });
               setCurrentRoom(null);
               setShowDeleteModal(false);
-            } else if (data.type === "error") {
+            } else if (data.type === 'error') {
               setErrorMessage(data.message);
             }
           } catch (e) {
-            console.error("Failed to parse WebSocket event", e);
+            console.error('Failed to parse WebSocket event', e);
           }
         };
 
@@ -251,13 +233,13 @@ export default function App() {
         };
 
         socket.onerror = (err) => {
-          console.warn("WebSocket encountered error:", err);
+          console.warn('WebSocket encountered error:', err);
         };
       } catch (err) {
-        console.error("Failed to create WebSocket connection:", err);
+        console.error('Failed to create WebSocket connection:', err);
       }
     },
-    [peerId, token, user?.id],
+    [peerId, token, user?.id]
   );
 
   // Auth Action Handlers
@@ -265,53 +247,45 @@ export default function App() {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, password: passwordInput }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to sign in");
+      if (!res.ok) throw new Error(data.error || 'Failed to sign in');
 
-      localStorage.setItem("openshare_token", data.token);
+      localStorage.setItem('openshare_token', data.token);
       setToken(data.token);
       setUser(data.user);
       setPeerName(data.user.username);
       setShowAuthModal(false);
     } catch (err: any) {
-      setAuthError(err.message || "Login failed");
+      setAuthError(err.message || 'Login failed');
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const handleRegister = async (
-    emailInput: string,
-    usernameInput: string,
-    passwordInput: string,
-  ) => {
+  const handleRegister = async (emailInput: string, usernameInput: string, passwordInput: string) => {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: emailInput,
-          username: usernameInput,
-          password: passwordInput,
-        }),
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, username: usernameInput, password: passwordInput }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create account");
+      if (!res.ok) throw new Error(data.error || 'Failed to create account');
 
-      localStorage.setItem("openshare_token", data.token);
+      localStorage.setItem('openshare_token', data.token);
       setToken(data.token);
       setUser(data.user);
       setPeerName(data.user.username);
       setShowAuthModal(false);
     } catch (err: any) {
-      setAuthError(err.message || "Registration failed");
+      setAuthError(err.message || 'Registration failed');
     } finally {
       setAuthLoading(false);
     }
@@ -327,14 +301,14 @@ export default function App() {
     setErrorMessage(null);
 
     const url = new URL(window.location.href);
-    url.searchParams.delete("room");
-    window.history.replaceState({}, "", url.pathname);
+    url.searchParams.delete('room');
+    window.history.replaceState({}, '', url.pathname);
 
-    localStorage.removeItem("openshare_token");
-    localStorage.removeItem("beamdrop_token");
+    localStorage.removeItem('openshare_token');
+    localStorage.removeItem('beamdrop_token');
     setToken(null);
     setUser(null);
-    setPeerName("Guest");
+    setPeerName('Guest');
 
     setShowDashboardModal(false);
     setShowAuthModal(false);
@@ -349,8 +323,7 @@ export default function App() {
   const isOwner = Boolean(
     currentRoom?.isOwner ||
     (user && currentRoom?.ownerId && user.id === currentRoom.ownerId) ||
-    (currentRoom?.ownerDeviceId &&
-      currentRoom.ownerDeviceId === deviceId.current),
+    (currentRoom?.ownerDeviceId && currentRoom.ownerDeviceId === deviceId.current)
   );
 
   const handleLeaveRoom = () => {
@@ -362,29 +335,25 @@ export default function App() {
     setWipedInfo(null);
     setErrorMessage(null);
     const url = new URL(window.location.href);
-    url.searchParams.delete("room");
-    window.history.replaceState({}, "", url.pathname);
+    url.searchParams.delete('room');
+    window.history.replaceState({}, '', url.pathname);
     fetchGuestRooms();
     fetchUserRooms();
   };
 
   // Create Room action
-  const handleCreateRoom = async (
-    code: string,
-    durationMinutes: number,
-    passcode?: string,
-  ) => {
+  const handleCreateRoom = async (code: string, durationMinutes: number, passcode?: string) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "x-device-id": deviceId.current,
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId.current,
       };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch("/api/rooms", {
-        method: "POST",
+      const res = await fetch(`${API_BASE_URL}/api/rooms`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           customCode: code,
@@ -397,23 +366,21 @@ export default function App() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create room");
+        throw new Error(data.error || 'Failed to create room');
       }
 
       const assignedRoomId = data.roomId;
       const url = new URL(window.location.href);
-      url.searchParams.set("room", assignedRoomId);
-      window.history.pushState({}, "", url.toString());
+      url.searchParams.set('room', assignedRoomId);
+      window.history.pushState({}, '', url.toString());
 
-      const currentName = user?.username || "Sender";
+      const currentName = user?.username || 'Sender';
       setPeerName(currentName);
       connectWebSocket(assignedRoomId, currentName);
       fetchGuestRooms();
       fetchUserRooms();
     } catch (err: any) {
-      setErrorMessage(
-        err.message || "An error occurred while creating the room",
-      );
+      setErrorMessage(err.message || 'An error occurred while creating the room');
     } finally {
       setIsLoading(false);
     }
@@ -425,32 +392,27 @@ export default function App() {
     setErrorMessage(null);
     try {
       const params = new URLSearchParams();
-      if (passcode) params.set("passcode", passcode);
+      if (passcode) params.set('passcode', passcode);
 
-      const headers: Record<string, string> = {
-        "x-device-id": deviceId.current,
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const headers: Record<string, string> = { 'x-device-id': deviceId.current };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(
-        `/api/rooms/${encodeURIComponent(code)}?${params.toString()}`,
-        { headers },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}?${params.toString()}`, { headers });
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Unable to join room.");
+        throw new Error(data.error || 'Unable to join room.');
       }
 
       const url = new URL(window.location.href);
-      url.searchParams.set("room", code);
-      window.history.pushState({}, "", url.toString());
+      url.searchParams.set('room', code);
+      window.history.pushState({}, '', url.toString());
 
-      const guestName = user?.username || "Receiver";
+      const guestName = user?.username || 'Receiver';
       setPeerName(guestName);
       connectWebSocket(code, guestName);
     } catch (err: any) {
-      setErrorMessage(err.message || "Could not connect to room");
+      setErrorMessage(err.message || 'Could not connect to room');
     } finally {
       setIsLoading(false);
     }
@@ -463,23 +425,20 @@ export default function App() {
     setUploadProgress(0);
 
     const formData = new FormData();
-    formData.append("uploader", user?.username || peerName);
-    formData.append("deviceId", deviceId.current);
+    formData.append('uploader', user?.username || peerName);
+    formData.append('deviceId', deviceId.current);
     for (const f of files) {
-      formData.append("files", f);
+      formData.append('files', f);
     }
 
     try {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open(
-          "POST",
-          `/api/rooms/${encodeURIComponent(currentRoom.id)}/upload`,
-        );
-        xhr.setRequestHeader("x-device-id", deviceId.current);
+        xhr.open('POST', `${API_BASE_URL}/api/rooms/${encodeURIComponent(currentRoom.id)}/upload`);
+        xhr.setRequestHeader('x-device-id', deviceId.current);
 
         if (token) {
-          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
 
         xhr.upload.onprogress = (e) => {
@@ -494,29 +453,21 @@ export default function App() {
             try {
               const data = JSON.parse(xhr.responseText);
               if (data.files && Array.isArray(data.files)) {
-                setCurrentRoom((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        files: data.files,
-                        totalBytes: data.totalBytes || prev.totalBytes,
-                      }
-                    : null,
-                );
+                setCurrentRoom((prev) => (prev ? { ...prev, files: data.files, totalBytes: data.totalBytes || prev.totalBytes } : null));
               }
             } catch (e) {}
             resolve();
           } else {
             try {
               const err = JSON.parse(xhr.responseText);
-              reject(new Error(err.error || "Upload failed"));
+              reject(new Error(err.error || 'Upload failed'));
             } catch {
-              reject(new Error("Upload failed"));
+              reject(new Error('Upload failed'));
             }
           }
         };
 
-        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.onerror = () => reject(new Error('Network error during upload'));
         xhr.send(formData);
       });
     } catch (err: any) {
@@ -528,13 +479,9 @@ export default function App() {
   };
 
   // Download individual file
-  const handleDownloadFile = (
-    roomId: string,
-    fileId: string,
-    fileName: string,
-  ) => {
-    const downloadUrl = `/api/rooms/${encodeURIComponent(roomId)}/files/${encodeURIComponent(fileId)}/download`;
-    const link = document.createElement("a");
+  const handleDownloadFile = (roomId: string, fileId: string, fileName: string) => {
+    const downloadUrl = `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/files/${encodeURIComponent(fileId)}/download`;
+    const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = fileName;
     document.body.appendChild(link);
@@ -545,8 +492,8 @@ export default function App() {
   // Download all as ZIP
   const handleDownloadAllZip = () => {
     if (!currentRoom) return;
-    const zipUrl = `/api/rooms/${encodeURIComponent(currentRoom.id)}/download-all`;
-    const link = document.createElement("a");
+    const zipUrl = `${API_BASE_URL}/api/rooms/${encodeURIComponent(currentRoom.id)}/download-all`;
+    const link = document.createElement('a');
     link.href = zipUrl;
     link.download = `${currentRoom.id}-files.zip`;
     document.body.appendChild(link);
@@ -558,23 +505,20 @@ export default function App() {
   const handleDeleteFile = async (roomId: string, fileId: string) => {
     try {
       const headers: Record<string, string> = {
-        "x-device-id": deviceId.current,
+        'x-device-id': deviceId.current,
       };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(
-        `/api/rooms/${encodeURIComponent(roomId)}/files/${encodeURIComponent(fileId)}`,
-        {
-          method: "DELETE",
-          headers,
-        },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/files/${encodeURIComponent(fileId)}`, {
+        method: 'DELETE',
+        headers,
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete file");
+        throw new Error(data.error || 'Failed to delete file');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Error deleting file");
+      setErrorMessage(err.message || 'Error deleting file');
     }
   };
 
@@ -586,36 +530,33 @@ export default function App() {
     setIsDeleting(true);
     try {
       const headers: Record<string, string> = {
-        "x-device-id": deviceId.current,
+        'x-device-id': deviceId.current,
       };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(
-        `/api/rooms/${encodeURIComponent(roomIdToWipe)}`,
-        {
-          method: "DELETE",
-          headers,
-        },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(roomIdToWipe)}`, {
+        method: 'DELETE',
+        headers,
+      });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to delete room");
+        throw new Error(data.error || 'Failed to delete room');
       }
 
       setWipedInfo({
         roomCode: roomIdToWipe,
-        reason: "The room was closed.",
+        reason: 'The room was closed.',
       });
       setCurrentRoom(null);
       setShowDeleteModal(false);
 
       const url = new URL(window.location.href);
-      url.searchParams.delete("room");
-      window.history.pushState({}, "", url.toString());
+      url.searchParams.delete('room');
+      window.history.pushState({}, '', url.toString());
       fetchGuestRooms();
       fetchUserRooms();
     } catch (err: any) {
-      setErrorMessage(err.message || "Could not delete room");
+      setErrorMessage(err.message || 'Could not delete room');
     } finally {
       setIsDeleting(false);
     }
@@ -631,19 +572,19 @@ export default function App() {
     setWipedInfo(null);
     setErrorMessage(null);
     const url = new URL(window.location.href);
-    url.searchParams.delete("room");
-    window.history.pushState({}, "", url.toString());
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url.toString());
   };
 
   // Auto-connect if URL has ?room=... or handle ?autostart=1
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const roomFromUrl = params.get("room");
-    const autostart = params.get("autostart");
+    const roomFromUrl = params.get('room');
+    const autostart = params.get('autostart');
 
     if (roomFromUrl) {
       handleJoinRoom(sanitizeRoomCode(roomFromUrl));
-    } else if (autostart === "1") {
+    } else if (autostart === '1') {
       const autoCode = generateRoomCode();
       handleCreateRoom(autoCode, 60);
     }
@@ -678,9 +619,7 @@ export default function App() {
             isOwner={isOwner}
             currentPeerName={user?.username || peerName}
             onUploadFiles={handleUploadFiles}
-            onDownloadFile={(fileId, fileName) =>
-              handleDownloadFile(currentRoom.id, fileId, fileName)
-            }
+            onDownloadFile={(fileId, fileName) => handleDownloadFile(currentRoom.id, fileId, fileName)}
             onDownloadAllZip={handleDownloadAllZip}
             onDeleteFile={(fileId) => handleDeleteFile(currentRoom.id, fileId)}
             onRequestDeleteRoom={() => setShowDeleteModal(true)}
@@ -762,14 +701,8 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-neutral-200 dark:border-neutral-800 py-6 px-4 text-center text-xs text-neutral-400 dark:text-neutral-500">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>
-            © {new Date().getFullYear()} OpenShare. Simple, temporary file
-            sharing.
-          </p>
-          <p>
-            Files are permanently removed from the server when rooms are
-            deleted.
-          </p>
+          <p>© {new Date().getFullYear()} openShare. Simple, temporary file sharing.</p>
+          <p>Files are permanently removed from the server when rooms are deleted.</p>
         </div>
       </footer>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, FolderLock, Trash2, ExternalLink, Clock, FileText, Download, RefreshCw } from 'lucide-react';
 import { UserProfile, UserCreatedRoom } from '../types';
 import { formatBytes } from '../utils/fileHelpers';
+import { API_BASE_URL } from '../utils/config';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/user/rooms', {
+      const res = await fetch(`${API_BASE_URL}/api/user/rooms`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch rooms');

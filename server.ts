@@ -16,6 +16,7 @@ function createArchiver(format: string, options: any) {
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -358,6 +359,19 @@ async function startServer() {
   const app = express();
   const server = http.createServer(app);
 
+  app.use(
+    cors({
+      origin: "*",
+      credentials: true,
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-device-id",
+        "x-peer-id",
+      ],
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    }),
+  );
   app.use(express.json());
   app.use(optionalAuth);
 
