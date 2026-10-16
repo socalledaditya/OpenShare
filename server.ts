@@ -1,32 +1,38 @@
-import express, { Request, Response, NextFunction } from 'express';
-import http from 'node:http';
-import path from 'node:path';
-import fs from 'node:fs';
-import crypto from 'node:crypto';
-import multer from 'multer';
-import { WebSocketServer, WebSocket } from 'ws';
-import * as archiverModule from 'archiver';
+import express, { Request, Response, NextFunction } from "express";
+import http from "node:http";
+import path from "node:path";
+import fs from "node:fs";
+import crypto from "node:crypto";
+import multer from "multer";
+import { WebSocketServer, WebSocket } from "ws";
+import * as archiverModule from "archiver";
+import dotenv from "dotenv";
+dotenv.config();
 
 function createArchiver(format: string, options: any) {
   let fn: any = (archiverModule as any).default || archiverModule;
   return fn(format, options);
 }
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import mongoose from 'mongoose';
-import { createServer as createViteServer } from 'vite';
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
+import { createServer as createViteServer } from "vite";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const isProduction = process.env.NODE_ENV === 'production';
-const UPLOAD_ROOT = path.join(process.cwd(), 'temp_uploads');
-const JWT_SECRET = process.env.JWT_SECRET || 'beamdrop-secure-ephemeral-jwt-2026';
+const isProduction = process.env.NODE_ENV === "production";
+const UPLOAD_ROOT = path.join(process.cwd(), "temp_uploads");
+const JWT_SECRET =
+  process.env.JWT_SECRET || "beamdrop-secure-ephemeral-jwt-2026";
 
 // Ensure root temporary directory exists
 if (!fs.existsSync(UPLOAD_ROOT)) {
   fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
 }
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/openshare';
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URL ||
+  "mongodb://127.0.0.1:27017/openshare";
 
 let isMongoConnected = false;
 
@@ -38,15 +44,20 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Number, default: Date.now },
 });
 
-export const MongoUser = mongoose.models.User || mongoose.model('User', userSchema);
+export const MongoUser =
+  mongoose.models.User || mongoose.model("User", userSchema);
 
-mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 2500 })
+mongoose
+  .connect(MONGODB_URI, { serverSelectionTimeoutMS: 2500 })
   .then(() => {
     isMongoConnected = true;
-    console.log('[MongoDB] Connected successfully to MongoDB');
+    console.log("[MongoDB] Connected successfully to MongoDB");
   })
   .catch((err) => {
-    console.warn('[MongoDB] Running in-memory database fallback mode:', err.message);
+    console.warn(
+      "[MongoDB] Running in-memory database fallback mode:",
+      err.message,
+    );
   });
 
 export interface User {
@@ -64,17 +75,17 @@ const usersByEmail = new Map<string, User>();
 // Seed a default demo user for convenience
 (async () => {
   const salt = await bcrypt.genSalt(10);
-  const demoHash = await bcrypt.hash('Password123', salt);
+  const demoHash = await bcrypt.hash("Password123", salt);
   const demoUser: User = {
-    id: 'user_demo_1',
-    email: 'demo@openshare.io',
-    username: 'DemoPilot',
+    id: "user_demo_1",
+    email: "demo@openshare.io",
+    username: "DemoPilot",
     passwordHash: demoHash,
     createdAt: Date.now(),
   };
   users.set(demoUser.id, demoUser);
   usersByEmail.set(demoUser.email.toLowerCase(), demoUser);
-  usersByEmail.set('demo@beamdrop.io', demoUser);
+  usersByEmail.set("demo@beamdrop.io", demoUser);
 })();
 
 export interface RoomFile {
@@ -94,7 +105,7 @@ export interface RoomLog {
   id: string;
   timestamp: number;
   message: string;
-  type: 'info' | 'success' | 'warn' | 'danger';
+  type: "info" | "success" | "warn" | "danger";
 }
 
 export interface Room {
@@ -131,7 +142,10 @@ const userSockets = new Map<string, Set<PeerSocket>>();
 
 function checkRoomOwnership(room: Room, req: Request | any): boolean {
   const reqUser = req.user;
-  const deviceId = (req.headers && req.headers['x-device-id'] as string) || (req.body && req.body.deviceId as string) || (req.query && req.query.deviceId as string);
+  const deviceId =
+    (req.headers && (req.headers["x-device-id"] as string)) ||
+    (req.body && (req.body.deviceId as string)) ||
+    (req.query && (req.query.deviceId as string));
 
   // 1. If room has an account owner
   if (reqUser && room.ownerId && room.ownerId === reqUser.id) {
@@ -142,7 +156,9 @@ function checkRoomOwnership(room: Room, req: Request | any): boolean {
     return true;
   }
   // 3. Fallback check for creator peer
-  const peerId = (req.headers && req.headers['x-peer-id'] as string) || (req.body && req.body.peerId as string);
+  const peerId =
+    (req.headers && (req.headers["x-peer-id"] as string)) ||
+    (req.body && (req.body.peerId as string));
   if (peerId && room.creatorPeerId === peerId) {
     return true;
   }
@@ -150,11 +166,11 @@ function checkRoomOwnership(room: Room, req: Request | any): boolean {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i] || 'MB'}`;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i] || "MB"}`;
 }
 
 function broadcastToRoom(roomId: string, data: any) {
@@ -166,7 +182,7 @@ function broadcastToRoom(roomId: string, data: any) {
       try {
         client.send(message);
       } catch (err) {
-        console.error('Error sending WS message:', err);
+        console.error("Error sending WS message:", err);
       }
     }
   }
@@ -176,7 +192,7 @@ function sendNotificationToUser(userId: string, notification: any) {
   const sockets = userSockets.get(userId);
   if (!sockets) return;
   const message = JSON.stringify({
-    type: 'notification',
+    type: "notification",
     ...notification,
   });
   for (const client of sockets) {
@@ -184,7 +200,7 @@ function sendNotificationToUser(userId: string, notification: any) {
       try {
         client.send(message);
       } catch (err) {
-        console.error('Error sending notification to user:', err);
+        console.error("Error sending notification to user:", err);
       }
     }
   }
@@ -204,7 +220,11 @@ function getSafeFileList(room: Room) {
   }));
 }
 
-function addRoomLog(room: Room, message: string, type: RoomLog['type'] = 'info') {
+function addRoomLog(
+  room: Room,
+  message: string,
+  type: RoomLog["type"] = "info",
+) {
   const log: RoomLog = {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
@@ -216,7 +236,7 @@ function addRoomLog(room: Room, message: string, type: RoomLog['type'] = 'info')
     room.logs.shift();
   }
   broadcastToRoom(room.id, {
-    type: 'room:log',
+    type: "room:log",
     log,
   });
 }
@@ -224,7 +244,10 @@ function addRoomLog(room: Room, message: string, type: RoomLog['type'] = 'info')
 /**
  * Permanently delete a room, removing all uploaded files from disk and notifying all clients.
  */
-async function permanentlyDeleteRoom(roomId: string, reason = 'User requested room deletion'): Promise<boolean> {
+async function permanentlyDeleteRoom(
+  roomId: string,
+  reason = "User requested room deletion",
+): Promise<boolean> {
   const room = rooms.get(roomId);
   if (!room) return false;
 
@@ -241,7 +264,7 @@ async function permanentlyDeleteRoom(roomId: string, reason = 'User requested ro
 
   // 2. Broadcast room:deleted event to all active peers
   broadcastToRoom(roomId, {
-    type: 'room:deleted',
+    type: "room:deleted",
     roomId,
     reason,
     purgedAt: Date.now(),
@@ -252,7 +275,7 @@ async function permanentlyDeleteRoom(roomId: string, reason = 'User requested ro
   if (sockets) {
     for (const ws of sockets) {
       try {
-        ws.close(1000, 'Room permanently wiped');
+        ws.close(1000, "Room permanently wiped");
       } catch (e) {}
     }
     roomSockets.delete(roomId);
@@ -260,7 +283,9 @@ async function permanentlyDeleteRoom(roomId: string, reason = 'User requested ro
 
   // 4. Remove from server memory
   rooms.delete(roomId);
-  console.log(`[STORAGE PURGE] Room ${roomId} and all files were permanently removed.`);
+  console.log(
+    `[STORAGE PURGE] Room ${roomId} and all files were permanently removed.`,
+  );
   return true;
 }
 
@@ -276,7 +301,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const fileId = crypto.randomUUID().slice(0, 8);
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
     cb(null, `${fileId}_${safeName}`);
   },
 });
@@ -299,8 +324,8 @@ interface AuthRequest extends Request {
 }
 
 function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
   if (!token) return next();
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
@@ -312,15 +337,17 @@ function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
 }
 
 function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
   if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: "Authentication required" });
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err || !user) {
-      return res.status(403).json({ error: 'Invalid or expired session token' });
+      return res
+        .status(403)
+        .json({ error: "Invalid or expired session token" });
     }
     req.user = user;
     next();
@@ -335,21 +362,21 @@ async function startServer() {
   app.use(optionalAuth);
 
   // WebSocket Server setup
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ server, path: "/ws" });
 
-  wss.on('connection', (ws: PeerSocket) => {
+  wss.on("connection", (ws: PeerSocket) => {
     ws.isAlive = true;
 
-    ws.on('pong', () => {
+    ws.on("pong", () => {
       ws.isAlive = true;
     });
 
-    ws.on('message', (data: any) => {
+    ws.on("message", (data: any) => {
       try {
         const payload = JSON.parse(data.toString());
 
         // Authenticate socket user or register token
-        if (payload.type === 'auth') {
+        if (payload.type === "auth") {
           const { token } = payload;
           if (token) {
             jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
@@ -365,16 +392,21 @@ async function startServer() {
           }
         }
 
-        if (payload.type === 'join') {
+        if (payload.type === "join") {
           const { roomId, peerId, peerName, userId, deviceId } = payload;
           if (!roomId || !rooms.has(roomId)) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Room not found or expired' }));
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                message: "Room not found or expired",
+              }),
+            );
             return;
           }
 
           ws.roomId = roomId;
           ws.peerId = peerId || crypto.randomUUID();
-          ws.peerName = peerName || 'Guest Peer';
+          ws.peerName = peerName || "Guest Peer";
           ws.deviceId = deviceId;
           if (userId) {
             ws.userId = userId;
@@ -394,13 +426,17 @@ async function startServer() {
 
           const isOwner =
             (room.ownerId && userId && room.ownerId === userId) ||
-            (room.ownerDeviceId && deviceId && room.ownerDeviceId === deviceId) ||
-            (room.creatorPeerId && ws.peerId && room.creatorPeerId === ws.peerId);
+            (room.ownerDeviceId &&
+              deviceId &&
+              room.ownerDeviceId === deviceId) ||
+            (room.creatorPeerId &&
+              ws.peerId &&
+              room.creatorPeerId === ws.peerId);
 
           // Send initial state to the newly connected peer
           ws.send(
             JSON.stringify({
-              type: 'room:init',
+              type: "room:init",
               room: {
                 id: room.id,
                 createdAt: room.createdAt,
@@ -415,15 +451,15 @@ async function startServer() {
                 totalBytes: room.totalBytes,
                 activePeers: activePeerCount,
               },
-            })
+            }),
           );
 
           // Log join event
-          addRoomLog(room, `${ws.peerName} joined the room.`, 'info');
+          addRoomLog(room, `${ws.peerName} joined the room.`, "info");
 
           // Broadcast peer update to everyone in room
           broadcastToRoom(roomId, {
-            type: 'peer:update',
+            type: "peer:update",
             activePeers: activePeerCount,
           });
 
@@ -434,7 +470,7 @@ async function startServer() {
             if (!isCreatorJoining) {
               const alertMsg = `${ws.peerName} joined your room ${room.id}`;
               sendNotificationToUser(room.ownerId, {
-                notificationType: 'peer_joined',
+                notificationType: "peer_joined",
                 roomId: room.id,
                 peerName: ws.peerName,
                 message: alertMsg,
@@ -445,8 +481,8 @@ async function startServer() {
 
           // Also alert peers currently in the room
           broadcastToRoom(roomId, {
-            type: 'notification',
-            notificationType: 'peer_joined',
+            type: "notification",
+            notificationType: "peer_joined",
             roomId: room.id,
             peerName: ws.peerName,
             message: `${ws.peerName} connected to the room.`,
@@ -454,11 +490,11 @@ async function startServer() {
           });
         }
       } catch (err) {
-        console.error('Error handling WebSocket message:', err);
+        console.error("Error handling WebSocket message:", err);
       }
     });
 
-    ws.on('close', () => {
+    ws.on("close", () => {
       if (ws.userId && userSockets.has(ws.userId)) {
         userSockets.get(ws.userId)!.delete(ws);
       }
@@ -468,9 +504,9 @@ async function startServer() {
         const remainingPeers = sockets.size;
         const room = rooms.get(ws.roomId);
         if (room) {
-          addRoomLog(room, `${ws.peerName || 'Peer'} disconnected.`, 'warn');
+          addRoomLog(room, `${ws.peerName || "Peer"} disconnected.`, "warn");
           broadcastToRoom(ws.roomId, {
-            type: 'peer:update',
+            type: "peer:update",
             activePeers: remainingPeers,
           });
         }
@@ -490,7 +526,7 @@ async function startServer() {
     });
   }, 25000);
 
-  wss.on('close', () => {
+  wss.on("close", () => {
     clearInterval(interval);
   });
 
@@ -499,7 +535,7 @@ async function startServer() {
     const now = Date.now();
     for (const [roomId, room] of rooms.entries()) {
       if (now > room.expiresAt) {
-        permanentlyDeleteRoom(roomId, 'Room reached expiration time limit');
+        permanentlyDeleteRoom(roomId, "Room reached expiration time limit");
       }
     }
   }, 30000);
@@ -507,12 +543,14 @@ async function startServer() {
   // AUTH API ROUTES
 
   // Register
-  app.post('/api/auth/register', async (req: Request, res: Response) => {
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { email, username, password } = req.body;
 
       if (!email || !username || !password) {
-        return res.status(400).json({ error: 'Email, username, and password are required.' });
+        return res
+          .status(400)
+          .json({ error: "Email, username, and password are required." });
       }
 
       const normalizedEmail = email.trim().toLowerCase();
@@ -522,24 +560,30 @@ async function startServer() {
         try {
           const existing = await MongoUser.findOne({ email: normalizedEmail });
           if (existing) {
-            return res.status(409).json({ error: 'An account with this email already exists.' });
+            return res
+              .status(409)
+              .json({ error: "An account with this email already exists." });
           }
         } catch (dbErr) {
-          console.error('MongoDB check error:', dbErr);
+          console.error("MongoDB check error:", dbErr);
         }
       }
 
       if (usersByEmail.has(normalizedEmail)) {
-        return res.status(409).json({ error: 'An account with this email already exists.' });
+        return res
+          .status(409)
+          .json({ error: "An account with this email already exists." });
       }
 
       if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+        return res
+          .status(400)
+          .json({ error: "Password must be at least 6 characters." });
       }
 
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
-      const userId = 'usr_' + crypto.randomUUID().slice(0, 8);
+      const userId = "usr_" + crypto.randomUUID().slice(0, 8);
 
       const user: User = {
         id: userId,
@@ -563,14 +607,14 @@ async function startServer() {
             createdAt: user.createdAt,
           });
         } catch (dbErr) {
-          console.error('Failed to create MongoDB user doc:', dbErr);
+          console.error("Failed to create MongoDB user doc:", dbErr);
         }
       }
 
       const token = jwt.sign(
         { id: user.id, email: user.email, username: user.username },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: "7d" },
       );
 
       res.status(201).json({
@@ -583,18 +627,20 @@ async function startServer() {
         token,
       });
     } catch (err: any) {
-      console.error('Registration error:', err);
-      res.status(500).json({ error: 'Failed to create user account' });
+      console.error("Registration error:", err);
+      res.status(500).json({ error: "Failed to create user account" });
     }
   });
 
   // Login
-  app.post('/api/auth/login', async (req: Request, res: Response) => {
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
 
       if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required.' });
+        return res
+          .status(400)
+          .json({ error: "Email and password are required." });
       }
 
       const normalizedEmail = email.trim().toLowerCase();
@@ -616,23 +662,23 @@ async function startServer() {
             usersByEmail.set(normalizedEmail, user);
           }
         } catch (dbErr) {
-          console.error('Error fetching user from MongoDB:', dbErr);
+          console.error("Error fetching user from MongoDB:", dbErr);
         }
       }
 
       if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password.' });
+        return res.status(401).json({ error: "Invalid email or password." });
       }
 
       const matches = await bcrypt.compare(password, user.passwordHash);
       if (!matches) {
-        return res.status(401).json({ error: 'Invalid email or password.' });
+        return res.status(401).json({ error: "Invalid email or password." });
       }
 
       const token = jwt.sign(
         { id: user.id, email: user.email, username: user.username },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: "7d" },
       );
 
       res.json({
@@ -645,16 +691,16 @@ async function startServer() {
         token,
       });
     } catch (err: any) {
-      console.error('Login error:', err);
-      res.status(500).json({ error: 'Failed to log in' });
+      console.error("Login error:", err);
+      res.status(500).json({ error: "Failed to log in" });
     }
   });
 
   // Get current user session
-  app.get('/api/auth/me', requireAuth, (req: AuthRequest, res: Response) => {
+  app.get("/api/auth/me", requireAuth, (req: AuthRequest, res: Response) => {
     const user = users.get(req.user!.id);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     res.json({
@@ -670,7 +716,7 @@ async function startServer() {
   // USER DASHBOARD ROUTES
 
   // Get active rooms created by the current user
-  app.get('/api/user/rooms', requireAuth, (req: AuthRequest, res: Response) => {
+  app.get("/api/user/rooms", requireAuth, (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const userRooms: any[] = [];
 
@@ -693,7 +739,7 @@ async function startServer() {
   });
 
   // Get active uploaded files by the current user
-  app.get('/api/user/files', requireAuth, (req: AuthRequest, res: Response) => {
+  app.get("/api/user/files", requireAuth, (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const userFiles: any[] = [];
 
@@ -717,8 +763,9 @@ async function startServer() {
   });
 
   // DEVICE ROOMS (For unauthenticated guest devices)
-  app.get('/api/device/rooms', (req: Request, res: Response) => {
-    const deviceId = (req.headers['x-device-id'] as string) || (req.query.deviceId as string);
+  app.get("/api/device/rooms", (req: Request, res: Response) => {
+    const deviceId =
+      (req.headers["x-device-id"] as string) || (req.query.deviceId as string);
     if (!deviceId) {
       return res.json({ rooms: [] });
     }
@@ -745,9 +792,10 @@ async function startServer() {
   // ROOM ROUTES
 
   // 1. Create a room (supports optional user attachment or guest device attachment)
-  app.post('/api/rooms', (req: AuthRequest, res: Response) => {
+  app.post("/api/rooms", (req: AuthRequest, res: Response) => {
     try {
-      const deviceId = (req.headers['x-device-id'] as string) || req.body.deviceId;
+      const deviceId =
+        (req.headers["x-device-id"] as string) || req.body.deviceId;
       const isUserLoggedIn = !!req.user;
 
       // Guest devices: strictly allow only 1 active room at a time!
@@ -762,24 +810,47 @@ async function startServer() {
         }
       }
 
-      const { customCode, durationMinutes = 60, passcode, peerId = 'host' } = req.body;
+      const {
+        customCode,
+        durationMinutes = 60,
+        passcode,
+        peerId = "host",
+      } = req.body;
 
-      let roomId = '';
-      if (customCode && typeof customCode === 'string') {
-        roomId = customCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+      let roomId = "";
+      if (customCode && typeof customCode === "string") {
+        roomId = customCode
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9-]/g, "")
+          .slice(0, 16);
       }
       if (!roomId || roomId.length < 3) {
-        const prefixes = ['OPEN', 'SHARE', 'VAULT', 'DROP', 'SWIFT', 'RELAY', 'SYNC'];
+        const prefixes = [
+          "OPEN",
+          "SHARE",
+          "VAULT",
+          "DROP",
+          "SWIFT",
+          "RELAY",
+          "SYNC",
+        ];
         const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
         const num = Math.floor(1000 + Math.random() * 9000);
         roomId = `${prefix}-${num}`;
       }
 
       if (rooms.has(roomId)) {
-        return res.status(409).json({ error: 'A room with this code is currently active. Choose a different code.' });
+        return res
+          .status(409)
+          .json({
+            error:
+              "A room with this code is currently active. Choose a different code.",
+          });
       }
 
-      const durationMs = Math.max(5, Math.min(1440, Number(durationMinutes) || 60)) * 60 * 1000;
+      const durationMs =
+        Math.max(5, Math.min(1440, Number(durationMinutes) || 60)) * 60 * 1000;
       const createdAt = Date.now();
       const expiresAt = createdAt + durationMs;
 
@@ -793,14 +864,17 @@ async function startServer() {
         id: roomId,
         createdAt,
         expiresAt,
-        passcode: passcode && typeof passcode === 'string' && passcode.trim().length > 0 ? passcode.trim() : null,
+        passcode:
+          passcode && typeof passcode === "string" && passcode.trim().length > 0
+            ? passcode.trim()
+            : null,
         files: new Map(),
         logs: [
           {
             id: crypto.randomUUID(),
             timestamp: createdAt,
             message: `Transfer room created. Temporary storage ready.`,
-            type: 'info',
+            type: "info",
           },
         ],
         totalBytes: 0,
@@ -824,24 +898,26 @@ async function startServer() {
         isOwner: true,
       });
     } catch (err: any) {
-      console.error('Error creating room:', err);
-      res.status(500).json({ error: 'Failed to create room' });
+      console.error("Error creating room:", err);
+      res.status(500).json({ error: "Failed to create room" });
     }
   });
 
   // 2. Get room details
-  app.get('/api/rooms/:roomId', (req: Request, res: Response) => {
+  app.get("/api/rooms/:roomId", (req: Request, res: Response) => {
     const { roomId } = req.params;
     const room = rooms.get(roomId);
 
     if (!room) {
-      return res.status(404).json({ error: 'Room not found or has been permanently deleted.' });
+      return res
+        .status(404)
+        .json({ error: "Room not found or has been permanently deleted." });
     }
 
-    const passcodeQuery = (req.query.passcode as string) || '';
+    const passcodeQuery = (req.query.passcode as string) || "";
     if (room.passcode && room.passcode !== passcodeQuery) {
       return res.status(401).json({
-        error: 'Passcode required or invalid.',
+        error: "Passcode required or invalid.",
         requiresPasscode: true,
         roomId: room.id,
       });
@@ -867,149 +943,161 @@ async function startServer() {
   });
 
   // 3. Upload files to room (restricted to room creator)
-  app.post('/api/rooms/:roomId/upload', upload.array('files', 20), (req: AuthRequest, res: Response) => {
-    const { roomId } = req.params;
-    const room = rooms.get(roomId);
+  app.post(
+    "/api/rooms/:roomId/upload",
+    upload.array("files", 20),
+    (req: AuthRequest, res: Response) => {
+      const { roomId } = req.params;
+      const room = rooms.get(roomId);
 
-    if (!room) {
-      return res.status(404).json({ error: 'Room does not exist or was deleted.' });
-    }
+      if (!room) {
+        return res
+          .status(404)
+          .json({ error: "Room does not exist or was deleted." });
+      }
 
-    if (!checkRoomOwnership(room, req)) {
-      return res.status(403).json({ error: 'Receivers are not allowed to upload files. Only the room creator can upload.' });
-    }
+      if (!checkRoomOwnership(room, req)) {
+        return res
+          .status(403)
+          .json({
+            error:
+              "Receivers are not allowed to upload files. Only the room creator can upload.",
+          });
+      }
 
-    const uploader = req.user?.username || (req.body.uploader as string) || 'Peer';
-    const uploaderId = req.user?.id;
-    const uploadedFiles = req.files as Express.Multer.File[];
+      const uploader =
+        req.user?.username || (req.body.uploader as string) || "Peer";
+      const uploaderId = req.user?.id;
+      const uploadedFiles = req.files as Express.Multer.File[];
 
-    if (!uploadedFiles || uploadedFiles.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded.' });
-    }
+      if (!uploadedFiles || uploadedFiles.length === 0) {
+        return res.status(400).json({ error: "No files uploaded." });
+      }
 
-    const newFiles: RoomFile[] = [];
+      const newFiles: RoomFile[] = [];
 
-    for (const f of uploadedFiles) {
-      const fileId = crypto.randomUUID().slice(0, 8);
-      const roomFile: RoomFile = {
-        id: fileId,
-        originalName: f.originalname,
-        sanitizedName: f.filename,
-        size: f.size,
-        mimeType: f.mimetype || 'application/octet-stream',
-        storagePath: f.path,
-        uploadedAt: Date.now(),
-        uploader,
-        uploaderId,
-        downloadCount: 0,
+      for (const f of uploadedFiles) {
+        const fileId = crypto.randomUUID().slice(0, 8);
+        const roomFile: RoomFile = {
+          id: fileId,
+          originalName: f.originalname,
+          sanitizedName: f.filename,
+          size: f.size,
+          mimeType: f.mimetype || "application/octet-stream",
+          storagePath: f.path,
+          uploadedAt: Date.now(),
+          uploader,
+          uploaderId,
+          downloadCount: 0,
+        };
+
+        room.files.set(fileId, roomFile);
+        room.totalBytes += f.size;
+        newFiles.push(roomFile);
+      }
+
+      const logSummary =
+        newFiles.length === 1
+          ? `${uploader} uploaded "${newFiles[0].originalName}" (${formatBytes(newFiles[0].size)})`
+          : `${uploader} uploaded ${newFiles.length} files (${formatBytes(newFiles.reduce((acc, curr) => acc + curr.size, 0))})`;
+
+      addRoomLog(room, logSummary, "success");
+
+      // Real-time broadcast to all connected peers in this room
+      broadcastToRoom(roomId, {
+        type: "files:updated",
+        files: getSafeFileList(room),
+        totalBytes: room.totalBytes,
+      });
+
+      // REAL-TIME NOTIFICATION REQUIREMENT:
+      // "Users should receive alerts when new files are uploaded to a room they are in"
+      const fileNotification = {
+        notificationType: "file_uploaded",
+        roomId: room.id,
+        uploaderName: uploader,
+        fileCount: newFiles.length,
+        firstFileName: newFiles[0].originalName,
+        message:
+          newFiles.length === 1
+            ? `${uploader} uploaded "${newFiles[0].originalName}"`
+            : `${uploader} uploaded ${newFiles.length} files (${newFiles[0].originalName}...)`,
+        timestamp: Date.now(),
       };
 
-      room.files.set(fileId, roomFile);
-      room.totalBytes += f.size;
-      newFiles.push(roomFile);
-    }
+      broadcastToRoom(roomId, {
+        type: "notification",
+        ...fileNotification,
+      });
 
-    const logSummary =
-      newFiles.length === 1
-        ? `${uploader} uploaded "${newFiles[0].originalName}" (${formatBytes(newFiles[0].size)})`
-        : `${uploader} uploaded ${newFiles.length} files (${formatBytes(newFiles.reduce((acc, curr) => acc + curr.size, 0))})`;
-
-    addRoomLog(room, logSummary, 'success');
-
-    // Real-time broadcast to all connected peers in this room
-    broadcastToRoom(roomId, {
-      type: 'files:updated',
-      files: getSafeFileList(room),
-      totalBytes: room.totalBytes,
-    });
-
-    // REAL-TIME NOTIFICATION REQUIREMENT:
-    // "Users should receive alerts when new files are uploaded to a room they are in"
-    const fileNotification = {
-      notificationType: 'file_uploaded',
-      roomId: room.id,
-      uploaderName: uploader,
-      fileCount: newFiles.length,
-      firstFileName: newFiles[0].originalName,
-      message:
-        newFiles.length === 1
-          ? `${uploader} uploaded "${newFiles[0].originalName}"`
-          : `${uploader} uploaded ${newFiles.length} files (${newFiles[0].originalName}...)`,
-      timestamp: Date.now(),
-    };
-
-    broadcastToRoom(roomId, {
-      type: 'notification',
-      ...fileNotification,
-    });
-
-    res.json({
-      success: true,
-      files: newFiles.map((f) => ({
-        id: f.id,
-        name: f.originalName,
-        size: f.size,
-        mimeType: f.mimeType,
-        uploadedAt: f.uploadedAt,
-        uploader: f.uploader,
-        uploaderId: f.uploaderId,
-      })),
-      totalBytes: room.totalBytes,
-    });
-  });
+      res.json({
+        success: true,
+        files: getSafeFileList(room),
+        totalBytes: room.totalBytes,
+      });
+    },
+  );
 
   // 4. Download individual file
-  app.get('/api/rooms/:roomId/files/:fileId/download', (req: Request, res: Response) => {
-    const { roomId, fileId } = req.params;
-    const room = rooms.get(roomId);
+  app.get(
+    "/api/rooms/:roomId/files/:fileId/download",
+    (req: Request, res: Response) => {
+      const { roomId, fileId } = req.params;
+      const room = rooms.get(roomId);
 
-    if (!room) {
-      return res.status(404).json({ error: 'Room has been deleted.' });
-    }
-
-    const file = room.files.get(fileId);
-    if (!file || !fs.existsSync(file.storagePath)) {
-      return res.status(404).json({ error: 'File not found or was removed.' });
-    }
-
-    file.downloadCount += 1;
-    addRoomLog(room, `File "${file.originalName}" was downloaded.`, 'info');
-
-    broadcastToRoom(roomId, {
-      type: 'files:updated',
-      files: getSafeFileList(room),
-      totalBytes: room.totalBytes,
-    });
-
-    res.download(file.storagePath, file.originalName, (err) => {
-      if (err && !res.headersSent) {
-        console.error('Error during download:', err);
+      if (!room) {
+        return res.status(404).json({ error: "Room has been deleted." });
       }
-    });
-  });
+
+      const file = room.files.get(fileId);
+      if (!file || !fs.existsSync(file.storagePath)) {
+        return res
+          .status(404)
+          .json({ error: "File not found or was removed." });
+      }
+
+      file.downloadCount += 1;
+      addRoomLog(room, `File "${file.originalName}" was downloaded.`, "info");
+
+      broadcastToRoom(roomId, {
+        type: "files:updated",
+        files: getSafeFileList(room),
+        totalBytes: room.totalBytes,
+      });
+
+      res.download(file.storagePath, file.originalName, (err) => {
+        if (err && !res.headersSent) {
+          console.error("Error during download:", err);
+        }
+      });
+    },
+  );
 
   // 5. Download all files as a ZIP bundle
-  app.get('/api/rooms/:roomId/download-all', (req: Request, res: Response) => {
+  app.get("/api/rooms/:roomId/download-all", (req: Request, res: Response) => {
     const { roomId } = req.params;
     const room = rooms.get(roomId);
 
     if (!room) {
-      return res.status(404).json({ error: 'Room has been deleted.' });
+      return res.status(404).json({ error: "Room has been deleted." });
     }
 
     if (room.files.size === 0) {
-      return res.status(400).json({ error: 'Room contains no files.' });
+      return res.status(400).json({ error: "Room contains no files." });
     }
 
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${roomId}-files.zip"`);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${roomId}-files.zip"`,
+    );
 
-    const archive = createArchiver('zip', { zlib: { level: 0 } });
+    const archive = createArchiver("zip", { zlib: { level: 0 } });
 
-    archive.on('error', (err: any) => {
-      console.error('ZIP archive error:', err);
+    archive.on("error", (err: any) => {
+      console.error("ZIP archive error:", err);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to create zip archive' });
+        res.status(500).json({ error: "Failed to create zip archive" });
       }
     });
 
@@ -1022,10 +1110,14 @@ async function startServer() {
       }
     }
 
-    addRoomLog(room, `Batch ZIP bundle (${room.files.size} files) was downloaded.`, 'info');
+    addRoomLog(
+      room,
+      `Batch ZIP bundle (${room.files.size} files) was downloaded.`,
+      "info",
+    );
 
     broadcastToRoom(roomId, {
-      type: 'files:updated',
+      type: "files:updated",
       files: getSafeFileList(room),
       totalBytes: room.totalBytes,
     });
@@ -1034,73 +1126,98 @@ async function startServer() {
   });
 
   // 6. Delete a single file (restricted to room creator)
-  app.delete('/api/rooms/:roomId/files/:fileId', async (req: Request, res: Response) => {
-    const { roomId, fileId } = req.params;
-    const room = rooms.get(roomId);
+  app.delete(
+    "/api/rooms/:roomId/files/:fileId",
+    async (req: Request, res: Response) => {
+      const { roomId, fileId } = req.params;
+      const room = rooms.get(roomId);
 
-    if (!room) {
-      return res.status(404).json({ error: 'Room not found.' });
-    }
-
-    if (!checkRoomOwnership(room, req)) {
-      return res.status(403).json({ error: 'Permission denied. Receivers cannot delete files. Only the room creator can delete files.' });
-    }
-
-    const file = room.files.get(fileId);
-    if (!file) {
-      return res.status(404).json({ error: 'File not found.' });
-    }
-
-    try {
-      if (fs.existsSync(file.storagePath)) {
-        await fs.promises.unlink(file.storagePath);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found." });
       }
-    } catch (err) {
-      console.error('Failed to unlink file:', err);
-    }
 
-    room.totalBytes -= file.size;
-    room.files.delete(fileId);
+      if (!checkRoomOwnership(room, req)) {
+        return res
+          .status(403)
+          .json({
+            error:
+              "Permission denied. Receivers cannot delete files. Only the room creator can delete files.",
+          });
+      }
 
-    addRoomLog(room, `File "${file.originalName}" was permanently removed.`, 'warn');
+      const file = room.files.get(fileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found." });
+      }
 
-    broadcastToRoom(roomId, {
-      type: 'files:updated',
-      files: getSafeFileList(room),
-      totalBytes: room.totalBytes,
-    });
+      try {
+        if (fs.existsSync(file.storagePath)) {
+          await fs.promises.unlink(file.storagePath);
+        }
+      } catch (err) {
+        console.error("Failed to unlink file:", err);
+      }
 
-    res.json({ success: true, message: 'File permanently erased.' });
-  });
+      room.totalBytes -= file.size;
+      room.files.delete(fileId);
+
+      addRoomLog(
+        room,
+        `File "${file.originalName}" was permanently removed.`,
+        "warn",
+      );
+
+      broadcastToRoom(roomId, {
+        type: "files:updated",
+        files: getSafeFileList(room),
+        totalBytes: room.totalBytes,
+      });
+
+      res.json({ success: true, message: "File permanently erased." });
+    },
+  );
 
   // 7. Delete room & permanently purge ALL files from disk and memory (restricted to room creator)
-  app.delete('/api/rooms/:roomId', async (req: Request, res: Response) => {
+  app.delete("/api/rooms/:roomId", async (req: Request, res: Response) => {
     const { roomId } = req.params;
     const room = rooms.get(roomId);
 
     if (!room) {
-      return res.status(404).json({ error: 'Room does not exist or was already deleted.' });
+      return res
+        .status(404)
+        .json({ error: "Room does not exist or was already deleted." });
     }
 
     if (!checkRoomOwnership(room, req)) {
-      return res.status(403).json({ error: 'Permission denied. Receivers cannot delete this room. Only the room creator can delete it.' });
+      return res
+        .status(403)
+        .json({
+          error:
+            "Permission denied. Receivers cannot delete this room. Only the room creator can delete it.",
+        });
     }
 
-    const success = await permanentlyDeleteRoom(roomId, 'Room closed by creator');
+    const success = await permanentlyDeleteRoom(
+      roomId,
+      "Room closed by creator",
+    );
 
     if (!success) {
-      return res.status(404).json({ error: 'Room does not exist or was already deleted.' });
+      return res
+        .status(404)
+        .json({ error: "Room does not exist or was already deleted." });
     }
 
     res.json({
       success: true,
-      message: 'Room and all files permanently removed from disk and server memory.',
+      message:
+        "Room and all files permanently removed from disk and server memory.",
     });
   });
 
   // Cleanup on process termination
   const cleanAllTemp = async () => {
-    console.log('[SHUTDOWN] Wiping all temporary files...');
+    console.log("[SHUTDOWN] Wiping all temporary files...");
     try {
       if (fs.existsSync(UPLOAD_ROOT)) {
         await fs.promises.rm(UPLOAD_ROOT, { recursive: true, force: true });
@@ -1108,11 +1225,11 @@ async function startServer() {
     } catch (e) {}
   };
 
-  process.on('SIGINT', async () => {
+  process.on("SIGINT", async () => {
     await cleanAllTemp();
     process.exit(0);
   });
-  process.on('SIGTERM', async () => {
+  process.on("SIGTERM", async () => {
     await cleanAllTemp();
     process.exit(0);
   });
@@ -1121,22 +1238,22 @@ async function startServer() {
   if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa',
+      appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(process.cwd(), 'dist')));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+    app.use(express.static(path.join(process.cwd(), "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(process.cwd(), "dist", "index.html"));
     });
   }
 
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
   });
 }
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  console.error("Failed to start server:", err);
   process.exit(1);
 });
