@@ -1,6 +1,6 @@
-import React from 'react';
-import { Sun, Moon, LogOut, LogIn, FolderLock } from 'lucide-react';
-import { UserProfile } from '../types';
+import React from "react";
+import { Sun, Moon, LogOut, LogIn, FolderLock } from "lucide-react";
+import { UserProfile } from "../types";
 
 interface HeaderProps {
   currentRoomId: string | null;
@@ -34,18 +34,20 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onHomeClick}
             className="flex items-center gap-2 text-left cursor-pointer group"
           >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center font-bold text-xs sm:text-sm tracking-tight transition-transform group-hover:scale-105">
-              O
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-4xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center font-bold text-xs sm:text-sm tracking-tight transition-transform group-hover:scale-105">
+              <img src="/openshare.png" alt="openshare.png" />
             </div>
             <span className="font-semibold text-sm sm:text-base tracking-tight text-neutral-900 dark:text-neutral-100">
-              openShare
+              OpenShare
             </span>
           </button>
 
           {/* Room status (desktop/tablet) */}
           {currentRoomId && (
             <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-600 dark:text-neutral-300">
-              <span className="text-neutral-400 dark:text-neutral-500">Room</span>
+              <span className="text-neutral-400 dark:text-neutral-500">
+                Room
+              </span>
               <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-100">
                 {currentRoomId}
               </span>
@@ -53,10 +55,14 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="flex items-center gap-1.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    activePeers > 1 ? 'bg-emerald-500' : 'bg-amber-500'
+                    activePeers > 1 ? "bg-emerald-500" : "bg-amber-500"
                   }`}
                 />
-                <span>{activePeers > 1 ? `${activePeers} connected` : 'Waiting for others'}</span>
+                <span>
+                  {activePeers > 1
+                    ? `${activePeers} connected`
+                    : "Waiting for others"}
+                </span>
               </span>
             </div>
           )}
@@ -67,11 +73,17 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Dark / Light Mode Toggle */}
           <button
             onClick={onToggleDarkMode}
-            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={
+              darkMode ? "Switch to light mode" : "Switch to dark mode"
+            }
             className="p-1.5 sm:p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-            title={darkMode ? 'Light mode' : 'Dark mode'}
+            title={darkMode ? "Light mode" : "Dark mode"}
           >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {darkMode ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </button>
 
           {/* User Auth or Dashboard */}

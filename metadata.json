@@ -1,5 +1,5 @@
 {
-  "name": "openShare",
+  "name": "OpenShare",
   "description": "Instant real-time room-based file sharing with zero persistence. Files are downloaded live and permanently purged from server memory and disk when the room closes.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
