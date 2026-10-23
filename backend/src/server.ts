@@ -55,7 +55,9 @@ async function startServer() {
     await cleanAllTemp();
     process.exit(0);
   });
-  server.listen(PORT, "localhost", () =>
+  // Bind externally in hosted containers (Render assigns PORT); localhost
+  // would make the process unreachable from Render's proxy.
+  server.listen(PORT, "0.0.0.0", () =>
     console.log(`Server listening on http://localhost:${PORT}`),
   );
 }
