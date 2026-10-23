@@ -1,0 +1,10 @@
+node_modules/
+build/
+dist/
+coverage/
+backend/temp_uploads/
+.DS_Store
+*.log
+.env*
+!.env.example
+DEPLOYMENT_VERCEL.md
