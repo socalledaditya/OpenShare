@@ -4,11 +4,13 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const backendUrl = process.env.VITE_BACKEND_PROXY_URL ?? 'http://localhost:3000';
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {
@@ -17,6 +19,19 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // Keep the browser on the Vite origin in local development while API and
+      // WebSocket requests are forwarded to the standalone backend service.
+      proxy: {
+        '/api': {
+          target: backendUrl,
+          changeOrigin: true,
+        },
+        '/ws': {
+          target: backendUrl,
+          changeOrigin: true,
+          ws: true,
+        },
+      },
     },
   };
 });

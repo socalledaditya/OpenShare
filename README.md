@@ -54,6 +54,11 @@
 - **Authentication**: JWT (JSON Web Tokens), Bcryptjs password hashing
 - **Database**: MongoDB (via Mongoose) with automatic in-memory fallback
 
+## Project Structure
+
+- `src/`, `public/`, and the Vite files at the repository root contain the frontend.
+- `backend/` contains the Express API, WebSocket server, database code, and temporary uploads.
+
 ---
 
 ## Getting Started
@@ -61,18 +66,20 @@
 ### Prerequisites
 
 - Node.js 18+ installed
-- bun
+- npm (bundled with Node.js)
 
 ### Installation
 
 1. **Clone the repository and install dependencies**:
 
    ```bash
-   bun install
+   npm install
+   npm --prefix backend install
    ```
 
 2. **Configure Environment Variables**:
-   Create a `.env` file in the root directory:
+   Create a `.env` file in the root directory. Both the frontend and backend
+   read their configuration from this file:
 
    ```env
    # ==========================================
@@ -97,10 +104,16 @@
    VITE_WS_BASE_URL=wss://yourapp-backend.onrender.com/ws
    ```
 
-3. **Start the Development Server**:
+3. **Start both development services** in separate terminals:
    ```bash
-   bun run dev
+   npm run dev
+   npm run dev:backend
    ```
-   Open your browser at `http://localhost:3000`.
+   Open the frontend at `http://localhost:5173`. Vite forwards `/api` and
+   `/ws` requests to the backend at `http://localhost:3000`.
+
+   To use a backend on a different local address, set
+   `VITE_BACKEND_PROXY_URL` before starting Vite. For a separately deployed
+   backend, set `VITE_API_BASE_URL` and `VITE_WS_BASE_URL` instead.
 
 ---
